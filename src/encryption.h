@@ -27,14 +27,15 @@ public:
     static Eigen::MatrixXi encryptKeyPowersOf2(const Eigen::VectorXi& new_s, int modulo, const Eigen::VectorXi& old_s) 
     {
         //here we want to encrypt 2^tau * (1, s[i]) x (1, s[j])
-        //we will need a total of log(q) * (1 + s.size()) encryptions
+        //we will need a total of log(q) * (1 + s.size()) * (2 + s.size()) / 2 encryptions
         //so random matrix will need to have size: {log(q) * (1 + old_s.size())} * new_s.size() 
         int log2q = log2(modulo) - 1;
-        int encryption_size = log2q * (1 + old_s.size()) * (1 + old_s.size());
+        //int encryption_size = log2q * (1 + old_s.size()) * (1 + old_s.size()); //* (2 + old_s.size()) / 2;
+        int encryption_size = log2q * (1 + old_s.size()) * (2 + old_s.size()) / 2;
 
         Eigen::MatrixXi a(encryption_size, new_s.size() + 1);
         a.block(0, 1, encryption_size, new_s.size()) = RandomGenerator::generateUniformIntegerMatrix(encryption_size, new_s.size(), -modulo/2, modulo/2);
-        //should be gaussian here, will use uniform distribution for the time being
+
         Eigen::MatrixXi e = RandomGenerator::generateErrorMatrix(encryption_size, 1, -modulo/4, modulo/4);
 
         Eigen::VectorXi s1(old_s.size() + 1);
@@ -42,16 +43,14 @@ public:
         s1.tail(old_s.size()) = old_s;
         
         Eigen::MatrixXi ss_mat = s1 * s1.transpose();
-        
-        auto ss_vec = Eigen::Map<Eigen::VectorXi>(ss_mat.data(), ss_mat.cols() * ss_mat.rows());
+        Eigen::MatrixXi ss_vec = storeSymmetricMatrixAsVector(ss_mat, false);
+
         auto powers_of2_vec = createPowersOf2Vector(log2q);
         
-        //std::cout << ss_vec << " <-ss\n";
         Eigen::MatrixXi ss_powers_of2_mat = ss_vec* powers_of2_vec.transpose();
         Eigen::VectorXi ss_powers_of2_vec 
                 = Eigen::Map<Eigen::VectorXi>(ss_powers_of2_mat.data(), ss_powers_of2_mat.cols() * ss_powers_of2_mat.rows());
 
-        //std::cout << ss_powers_of2_vec << " <-ss2\n";
         Eigen::VectorXi b = (a.block(0, 1, encryption_size, new_s.size()) * new_s + 2 * e);  
 
         b = (b + (ss_powers_of2_vec)).unaryExpr([modulo](int elem){return ZqElement::restrict(elem, modulo);});
@@ -61,7 +60,7 @@ public:
 
 
 
-    static Eigen::MatrixXi multiplyCypherTexts(const Eigen::MatrixXi& c1, const Eigen::MatrixXi& c2, Eigen::MatrixXi info, int modulo)
+    static Eigen::MatrixXi multiplyCyphertexts(const Eigen::MatrixXi& c1, const Eigen::MatrixXi& c2, Eigen::MatrixXi info, int modulo)
     {
         //c1 and c2 are row vectoes
         assert(c1.size() == c2.size());
@@ -82,25 +81,50 @@ public:
         h.block(1, 1, c1.cols() - 1, c1.cols() - 1) = c1.block(0, 1, 1, c2.cols() - 1).transpose() * c2.block(0, 1, 1, c2.cols() - 1);
 
         h = h.unaryExpr([modulo](int elem){return ZqElement::restrict(elem, modulo);});
+        Eigen::MatrixXi h_vec = storeSymmetricMatrixAsVector(h, true).unaryExpr([modulo](int elem){return ZqElement::restrict(elem, modulo);});
 
-        auto h_vec =  Eigen::Map<Eigen::VectorXi>(h.data(), h.cols() * h.rows());
+        //auto h_vec =  Eigen::Map<Eigen::VectorXi>(h.data(), h.cols() * h.rows());
         int n = h_vec.size();
         int log2q = info.rows() / n;
-
         auto h_vec_binary = createVectorBitDecomposition(h_vec, log2q);
 
         //sum_ij h_ij (1, s)[i]*(1, s)[j] = sum_ijt hb_ijt * {2^t (1, s)[i] * (1, s)[j]} = 
         //sum_ijt hb_ijt * {b_ijt - <a_ijt, new_s>} = sum_ijt hb_ijt * b_ijt-  <sum_ijt hb_ijt * a_ijt, new_s>
         //now we can aquire cyphertext encryption in new key as (hb_ijt * b_ijt, sum_ijt hb_ijt * a_ijt)
         //it seems that in this case the error should be bounded by (old_s.size() + 1)^2 * (log_2(q) - 1)
-        //if we do not use binary decomposition then it is not bounded at all (since h_ij can normally take any value within Z_q)
+        //if we do not use binary decomposition then it is not bounded at all (since h_ij can normally take any value in Z_q)
         Eigen::MatrixXi c = h_vec_binary.transpose() * info;
         return c;
     }
 
+
+    static Eigen::VectorXi storeSymmetricMatrixAsVector(const Eigen::MatrixXi& m, bool sum)
+    {
+        assert(m.rows() == m.cols());
+        Eigen::VectorXi vec(m.cols() * (m.cols() + 1) / 2);
+        int idx_start = 0;
+        for (int i = 0; i < m.cols(); i++)
+        {
+            int elts_in_col = m.rows() - i;
+            vec.segment(idx_start + 1, elts_in_col - 1) = m.col(i).segment(i + 1, elts_in_col - 1);
+            if (sum)
+            {
+                vec.segment(idx_start + 1, elts_in_col - 1) += m.row(i).segment(i + 1, elts_in_col - 1).transpose();
+            }
+            vec(idx_start) = m(i, i);
+            idx_start += elts_in_col;
+        }
+        assert(idx_start == vec.size());
+        //auto mm = m;
+        //vec = Eigen::Map<Eigen::VectorXi>(mm.data(), mm.cols() * mm.rows());
+
+        return vec;
+    }
+
+
     static Eigen::MatrixXi addCyphertexts(const Eigen::MatrixXi& c1, const Eigen::MatrixXi& c2)
     {
-        //c1 and c2 are row vectoes
+        //c1 and c2 are row vectors
         assert(c1.size() == c2.size());
         assert(c1.rows() == 1);
 

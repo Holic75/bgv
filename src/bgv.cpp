@@ -25,7 +25,7 @@ int main (int argc, char *argv[])
     auto c1_test = bgv::EncryptionEngine::encrypt(s1_test, q_test, true);
     auto c2_test = bgv::EncryptionEngine::encrypt(s1_test, q_test, false);
     auto info_test = bgv::EncryptionEngine::encryptKeyPowersOf2(s2_test, q_test, s1_test);
-    auto c_mult = bgv::EncryptionEngine::multiplyCypherTexts(c1_test, c1_test, info_test, q_test);
+    auto c_mult = bgv::EncryptionEngine::multiplyCyphertexts(c1_test, c1_test, info_test, q_test);
     std::cout << c1_test << "\n";
     std::cout << c2_test << "\n";
     std::cout << bgv::EncryptionEngine::decrypt(s1_test, q_test, c1_test) << "\n";
@@ -41,7 +41,7 @@ int main (int argc, char *argv[])
 
     Eigen::VectorXi s2(5);
     s2 << 7, 9, -1, 4, -15;
-    int q = 65535;
+    int q = 65007;
 
     //std::cout << bgv::EncryptionEngine::createVectorBitDecomposition(s, 5) << "\n";
     //auto a = bgv::EncryptionEngine::encryptKeyPowersOf2(s2, q, s);
@@ -57,7 +57,7 @@ int main (int argc, char *argv[])
         auto m_sum = bgv::EncryptionEngine::decrypt(s, q, c_sum);
 
         auto info = bgv::EncryptionEngine::encryptKeyPowersOf2(s2, q, s);
-        auto c_prod = bgv::EncryptionEngine::multiplyCypherTexts(c1, c1, info, q);
+        auto c_prod = bgv::EncryptionEngine::multiplyCyphertexts(c1, c1, info, q);
         auto m_prod = bgv::EncryptionEngine::decrypt(s2, q, c_prod);
         std::cout << m1 << "\n";
         std::cout << m2 << "\n";
