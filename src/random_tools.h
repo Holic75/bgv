@@ -7,12 +7,17 @@ namespace bgv
 
 /// \brief Some utility functions for random number generation
 /// 
-/// Always uses the same default seed to ensure repeatability of tests
-/// TODO: add option to provide a specific seed
 class RandomGenerator
 {
     static std::default_random_engine generator;
 public:
+    /// \brief Seed generator
+	///
+	/// @param val Seed value.
+    static void seed(unsigned int val)
+    {
+        generator.seed(val);
+    }
 
     /// \brief Generate random integer from uniform distribution on [min, max]
 	///

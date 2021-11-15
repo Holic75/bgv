@@ -18,7 +18,7 @@ int main (int argc, char *argv[])
     int q = 32771;
     int q2 = 16273;
 
-
+    bgv::RandomGenerator::seed(1);
     std::vector<std::pair<int, int>> bits(4);
     bits[0] = {0, 0};
     bits[1] = {1, 0};
