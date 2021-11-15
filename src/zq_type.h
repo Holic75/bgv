@@ -33,17 +33,17 @@ public:
     }
 
 
-    static int restrict(int z, int modulo)
+    static int restrict(int z, int modulus)
     {
-        //restrict value to [-modulo/2;  modulo/2]
-        z = z % modulo;
-        if (z > modulo/2)
+        //restrict value to [-modulus/2;  modulus/2]
+        z = z % modulus;
+        if (z > modulus/2)
         {
-            z -= modulo;
+            z -= modulus;
         }
-        else if (z < - modulo/2)
+        else if (z < - modulus/2)
         {
-            z += modulo;
+            z += modulus;
         }
         return z;
     }

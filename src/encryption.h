@@ -10,33 +10,33 @@ class EncryptionEngine
 {
 
 public:
-    static Eigen::MatrixXi encrypt(const Eigen::VectorXi& s, int modulo, bool value)
+    static Eigen::MatrixXi encrypt(const Eigen::VectorXi& s, int modulus, bool value)
     {
         Eigen::MatrixXi a(1, s.size() + 1);
-        a.block(0, 1, 1, s.size()) = RandomGenerator::generateUniformIntegerMatrix(1, s.size(), -modulo/2, modulo/2);
+        a.block(0, 1, 1, s.size()) = RandomGenerator::generateUniformIntegerMatrix(1, s.size(), -modulus/2, modulus/2);
         
-        Eigen::MatrixXi e = RandomGenerator::generateErrorMatrix(1, 1, -modulo/4, modulo/4);
+        Eigen::MatrixXi e = RandomGenerator::generateErrorMatrix(1, 1, -modulus/4, modulus/4);
 
         int b = (a.block(0, 1, 1, s.size()) * s + 2 * e)(0, 0);
-        b = ZqElement::restrict(b + (value ? 1 : 0), modulo);
+        b = ZqElement::restrict(b + (value ? 1 : 0), modulus);
         a(0, 0) = b;
         return a; //will return a row vector
     }
 
 
-    static Eigen::MatrixXi encryptKeyPowersOf2(const Eigen::VectorXi& new_s, int modulo, const Eigen::VectorXi& old_s) 
+    static Eigen::MatrixXi encryptKeyPowersOf2(const Eigen::VectorXi& new_s, int modulus, const Eigen::VectorXi& old_s) 
     {
         //here we want to encrypt 2^tau * (1, s[i]) x (1, s[j])
         //we will need a total of log(q) * (1 + s.size()) * (2 + s.size()) / 2 encryptions
         //so random matrix will need to have size: {log(q) * (1 + old_s.size())} * new_s.size() 
-        int log2q = log2(modulo) - 1;
+        int log2q = log2(modulus) - 1;
         //int encryption_size = log2q * (1 + old_s.size()) * (1 + old_s.size()); //* (2 + old_s.size()) / 2;
         int encryption_size = log2q * (1 + old_s.size()) * (2 + old_s.size()) / 2;
 
         Eigen::MatrixXi a(encryption_size, new_s.size() + 1);
-        a.block(0, 1, encryption_size, new_s.size()) = RandomGenerator::generateUniformIntegerMatrix(encryption_size, new_s.size(), -modulo/2, modulo/2);
+        a.block(0, 1, encryption_size, new_s.size()) = RandomGenerator::generateUniformIntegerMatrix(encryption_size, new_s.size(), -modulus/2, modulus/2);
 
-        Eigen::MatrixXi e = RandomGenerator::generateErrorMatrix(encryption_size, 1, -modulo/4, modulo/4);
+        Eigen::MatrixXi e = RandomGenerator::generateErrorMatrix(encryption_size, 1, -modulus/4, modulus/4);
 
         Eigen::VectorXi s1(old_s.size() + 1);
         s1(0) = 1;
@@ -45,22 +45,85 @@ public:
         Eigen::MatrixXi ss_mat = s1 * s1.transpose();
         Eigen::MatrixXi ss_vec = storeSymmetricMatrixAsVector(ss_mat, false);
 
-        auto powers_of2_vec = createPowersOf2Vector(log2q);
-        
-        Eigen::MatrixXi ss_powers_of2_mat = ss_vec* powers_of2_vec.transpose();
-        Eigen::VectorXi ss_powers_of2_vec 
-                = Eigen::Map<Eigen::VectorXi>(ss_powers_of2_mat.data(), ss_powers_of2_mat.cols() * ss_powers_of2_mat.rows());
+        auto ss_powers_of2_vec = createPowersOf2Vector(ss_vec, log2q);
 
         Eigen::VectorXi b = (a.block(0, 1, encryption_size, new_s.size()) * new_s + 2 * e);  
 
-        b = (b + (ss_powers_of2_vec)).unaryExpr([modulo](int elem){return ZqElement::restrict(elem, modulo);});
+        b = (b + (ss_powers_of2_vec)).unaryExpr([modulus](int elem){return ZqElement::restrict(elem, modulus);});
         a.block(0, 0, encryption_size, 1) = b;
         return a;
     }
 
 
+    static Eigen::MatrixXi encryptKeyBitsPowersOf2(const Eigen::VectorXi& new_s, int modulus, const Eigen::VectorXi& old_s) 
+    {
+        //here we want to encrypt 2^k * {(1, s[i]) x (1, s[j])}_t
+        //where (1, s[i])(1, s[j]) = sum_t 2^t (1, s[i]) x (1, s[j])}_t
+        //we will need a total of log(q) * log(q) * (1 + s.size()) * (2 + s.size()) / 2 encryptions
 
-    static Eigen::MatrixXi multiplyCyphertexts(const Eigen::MatrixXi& c1, const Eigen::MatrixXi& c2, Eigen::MatrixXi info, int modulo)
+        int log2q = log2(modulus) - 1;
+        int encryption_size = log2q * log2q * (1 + old_s.size()) * (2 + old_s.size()) / 2;
+
+        Eigen::MatrixXi a(encryption_size, new_s.size() + 1);
+        a.block(0, 1, encryption_size, new_s.size()) = RandomGenerator::generateUniformIntegerMatrix(encryption_size, new_s.size(), -modulus/2, modulus/2);
+
+        Eigen::MatrixXi e = RandomGenerator::generateErrorMatrix(encryption_size, 1, -modulus/4, modulus/4);
+
+        Eigen::VectorXi s1(old_s.size() + 1);
+        s1(0) = 1;
+        s1.tail(old_s.size()) = old_s;
+        
+        Eigen::MatrixXi ss_mat = s1 * s1.transpose();
+        Eigen::VectorXi ss_vec = storeSymmetricMatrixAsVector(ss_mat, false);
+        ss_vec = createVectorBitDecomposition(ss_vec, log2q);
+        auto ss_powers_of2_vec = createPowersOf2Vector(ss_vec, log2q);
+
+        Eigen::VectorXi b = (a.block(0, 1, encryption_size, new_s.size()) * new_s + 2 * e);  
+
+        b = (b + (ss_powers_of2_vec)).unaryExpr([modulus](int elem){return ZqElement::restrict(elem, modulus);});
+        a.block(0, 0, encryption_size, 1) = b;
+        return a;
+    }
+
+    static Eigen::VectorXi refresh(const Eigen::VectorXi& h, const Eigen::MatrixXi& info, int old_modulus, int new_modulus)
+    {
+        assert(new_modulus < old_modulus);
+        assert(new_modulus > 0);
+        //take c = sum_ij h_ij * s[i]s[j] 
+        //= sum_ijt h_ij 2^t {s[i]s[j]}_t   (i.e. decomposition with respect to binary representation of the key)
+        //apply modulus switching
+        //u_ijt = {h_ij 2^t} -> v_ijt = (p/q) * u_ijt s.t.  u_ijt mod 2 = v_ijt mod 2
+        //c = sum_ijt v_ijt {s[i]s[j]}_t = sum_ijtk v_ijtk * 2^k {s[i]s[j]}_t
+        int log2_q_old = log2(old_modulus);
+        int half_new_modulus  = new_modulus / 2;
+        Eigen::VectorXi h_powers_of2 = createPowersOf2Vector(h, log2_q_old).unaryExpr([old_modulus](int elem){return ZqElement::restrict(elem, old_modulus);});
+
+        for (int i = 0; i < h_powers_of2.size(); i++)
+        {
+            int old_mod = h_powers_of2(i) % 2;
+            int new_value = (h_powers_of2(i) * new_modulus / old_modulus);
+            int new_mod = new_value % 2;
+            // new_mod and old_mod will have same signs
+            if (old_mod > new_mod)
+            {
+                new_value = (new_mod == half_new_modulus) ? new_value - 1 : new_value + 1;
+            }
+            else if (old_mod < new_mod)
+            {
+                new_value = (new_mod == - half_new_modulus) ? new_value + 1 : new_value - 1;
+            }
+            h_powers_of2(i) = new_value;
+        }
+
+        int log2q_new = log2(new_modulus);
+        auto h_vec_binary = createVectorBitDecomposition(h_powers_of2, log2q_new);
+        Eigen::MatrixXi c = h_vec_binary.transpose() * info;
+        return c;
+    }
+
+
+
+    static Eigen::MatrixXi multiplyCyphertexts(const Eigen::MatrixXi& c1, const Eigen::MatrixXi& c2, Eigen::MatrixXi info, int modulus)
     {
         //c1 and c2 are row vectoes
         assert(c1.size() == c2.size());
@@ -80,8 +143,8 @@ public:
         h.block(0, 1, 1, c1.cols() - 1) = -c1(0, 0) * c2.block(0, 1, 1, c1.cols() - 1);
         h.block(1, 1, c1.cols() - 1, c1.cols() - 1) = c1.block(0, 1, 1, c2.cols() - 1).transpose() * c2.block(0, 1, 1, c2.cols() - 1);
 
-        h = h.unaryExpr([modulo](int elem){return ZqElement::restrict(elem, modulo);});
-        Eigen::MatrixXi h_vec = storeSymmetricMatrixAsVector(h, true).unaryExpr([modulo](int elem){return ZqElement::restrict(elem, modulo);});
+        h = h.unaryExpr([modulus](int elem){return ZqElement::restrict(elem, modulus);});
+        Eigen::MatrixXi h_vec = storeSymmetricMatrixAsVector(h, true).unaryExpr([modulus](int elem){return ZqElement::restrict(elem, modulus);});
 
         //auto h_vec =  Eigen::Map<Eigen::VectorXi>(h.data(), h.cols() * h.rows());
         int n = h_vec.size();
@@ -167,17 +230,30 @@ public:
     }
 
 
-    static bool decrypt(const Eigen::VectorXi& s, int modulo, const Eigen::MatrixXi& cyphertext)
+    static bool decrypt(const Eigen::VectorXi& s, int modulus, const Eigen::MatrixXi& cyphertext)
     {
         int result = (cyphertext.block(0, 0, cyphertext.rows(), 1) 
                             - cyphertext.block(0, 1, cyphertext.rows(), s.size()) * s)(0, 0);
-        result = ZqElement::restrict(result , modulo);
+        result = ZqElement::restrict(result , modulus);
         result = result % 2;
         return result;
     }
 
 
-    static  Eigen::VectorXi createPowersOf2Vector(int size)
+    static Eigen::VectorXi createPowersOf2Vector(const Eigen::MatrixXi& vec, int n_bits)
+    {
+        auto powers_of2 = createPowersOf2(n_bits);
+        
+        Eigen::MatrixXi powers_of2_mat = vec * powers_of2.transpose();
+        Eigen::VectorXi powers_of2_vec 
+                = Eigen::Map<Eigen::VectorXi>(powers_of2_mat.data(), powers_of2_mat.cols() * powers_of2_mat.rows());
+        
+        return powers_of2_vec;
+    }
+
+
+
+    static  Eigen::VectorXi createPowersOf2(int size)
     {
         Eigen::VectorXi v(size);
         v(0) = 1;
