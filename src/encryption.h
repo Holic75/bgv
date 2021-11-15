@@ -65,7 +65,6 @@ public:
         Eigen::VectorXi s1(old_s.size() + 1);
         s1(0) = 1;
         s1.tail(old_s.size()) = old_s;
-        
         Eigen::MatrixXi ss_mat = s1 * s1.transpose();
         Eigen::VectorXi ss_vec = storeSymmetricMatrixAsVector(ss_mat, false);
         ss_vec = createVectorBitDecomposition(ss_vec, log2q_old);
@@ -74,7 +73,7 @@ public:
         return encrypt(new_s, new_modulus, ss_powers_of2_vec);
     }
 
-    static Eigen::VectorXi refresh(const Eigen::VectorXi& h, const Eigen::MatrixXi& info, int old_modulus, int new_modulus)
+    static Eigen::MatrixXi refresh(const Eigen::VectorXi& h, const Eigen::MatrixXi& info, int old_modulus, int new_modulus)
     {
         assert(new_modulus < old_modulus);
         assert(new_modulus > 0);
@@ -85,7 +84,7 @@ public:
         //c = sum_ijt v_ijt {s[i]s[j]}_t = sum_ijtk v_ijtk * 2^k {s[i]s[j]}_t
         int log2_q_old = log2(old_modulus) - 1;
         int half_new_modulus  = new_modulus / 2;
-        Eigen::VectorXi h_powers_of2 = createPowersOf2Vector(h, log2_q_old).unaryExpr([old_modulus](int elem){return ZqElement::restrict(elem, old_modulus);});
+        Eigen::VectorXi h_powers_of2 = ZqElement::restrict(createPowersOf2Vector(h, log2_q_old), old_modulus);
 
         for (int i = 0; i < h_powers_of2.size(); i++)
         {
@@ -105,10 +104,7 @@ public:
         }
 
         Eigen::MatrixXi c = relinearize(h_powers_of2, info);
-        /*int log2q_new = log2(new_modulus);
-        auto h_vec_binary = createVectorBitDecomposition(h_powers_of2, log2q_new);
-        Eigen::MatrixXi c = h_vec_binary.transpose() * info;
-        return c;*/
+        return c;
     }
 
 
@@ -296,8 +292,6 @@ public:
         }
         return count;
     }
-    //addition of cypertexts is trivial
-    //multiplication will require extra information about s x s decomposition
 };
 
 }
