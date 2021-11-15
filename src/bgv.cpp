@@ -51,7 +51,7 @@ int main (int argc, char *argv[])
     {
         auto c1 = bgv::EncryptionEngine::encrypt(s, q, 1);
         auto c2 = bgv::EncryptionEngine::encrypt(s, q, 0);
-        auto c_sum = bgv::EncryptionEngine::addCyphertexts(c1, c2);
+        auto c_sum = bgv::EncryptionEngine::addCyphertexts(c1, c2, q);
         auto m1 = bgv::EncryptionEngine::decrypt(s, q, c1);
         auto m2 = bgv::EncryptionEngine::decrypt(s, q, c2);
         auto m_sum = bgv::EncryptionEngine::decrypt(s, q, c_sum);
@@ -59,11 +59,18 @@ int main (int argc, char *argv[])
         auto info = bgv::EncryptionEngine::encryptKeyPowersOf2(s2, q, s);
         auto c_prod = bgv::EncryptionEngine::multiplyCyphertexts(c1, c1, info, q);
         auto m_prod = bgv::EncryptionEngine::decrypt(s2, q, c_prod);
+        auto c_sum_long = bgv::EncryptionEngine::addCyphertextsLong(c1, c2, q);
+        auto c_sum_relin = bgv::EncryptionEngine::relinearize(c_sum_long, info);
+        auto m_sum2 = bgv::EncryptionEngine::decrypt(s2, q, c_sum_relin);
+
         std::cout << m1 << "\n";
         std::cout << m2 << "\n";
         std::cout << m_sum << "\n";
+        std::cout << m_sum2 << "\n";
         std::cout << m_prod << "\n";
         assert(m_prod(0, 0) == 1);
+        assert(m_sum(0, 0) == 1);
+        assert(m_sum2(0, 0) == 1);
     }
 
 
