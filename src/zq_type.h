@@ -5,7 +5,9 @@
 
 namespace bgv
 {
-//assume that q is even
+/// \brief Utility class implementing Zq elements restricted to [-q/2, q/2]
+/// 
+/// q is assumed to be odd
 class ZqElement
 {
 private:
@@ -33,10 +35,13 @@ public:
         return out << z.value_;
     }
 
-
+    /// \brief Restrict number into [-modulus/2, modulus/2] interval.
+	///
+    /// @param z Number.
+	/// @param modulus Modulus.
+	/// @return z restricted to [-modulus/2, modulus/2] interval
     static int restrict(int z, int modulus)
     {
-        //restrict value to [-modulus/2;  modulus/2]
         z = z % modulus;
         if (z > modulus/2)
         {
@@ -49,7 +54,11 @@ public:
         return z;
     }
 
-
+    /// \brief Restrict matrix elements into [-modulus/2, modulus/2] interval.
+	///
+    /// @param z Matrix.
+	/// @param modulus Modulus.
+	/// @return Matrix with elements restricted to [-modulus/2, modulus/2] interval
     template<int R, int C>
     static Eigen::Matrix<int, R, C> restrict(const Eigen::Matrix<int, R, C>& z, int modulus)
     {
