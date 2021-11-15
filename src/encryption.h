@@ -10,17 +10,25 @@ class EncryptionEngine
 {
 
 public:
-    static Eigen::MatrixXi encrypt(const Eigen::VectorXi& s, int modulus, bool value)
+    static Eigen::MatrixXi encrypt(const Eigen::VectorXi& s, int modulus, const Eigen::VectorXi& m)
     {
-        Eigen::MatrixXi a(1, s.size() + 1);
-        a.block(0, 1, 1, s.size()) = RandomGenerator::generateUniformIntegerMatrix(1, s.size(), -modulus/2, modulus/2);
-        
-        Eigen::MatrixXi e = RandomGenerator::generateErrorMatrix(1, 1, -modulus/4, modulus/4);
+        Eigen::MatrixXi a(m.size(), s.size() + 1);
+        a.block(0, 1, m.size(), s.size()) = RandomGenerator::generateUniformIntegerMatrix(m.size(), s.size(), -modulus/2, modulus/2);
 
-        int b = (a.block(0, 1, 1, s.size()) * s + 2 * e)(0, 0);
-        b = ZqElement::restrict(b + (value ? 1 : 0), modulus);
-        a(0, 0) = b;
-        return a; //will return a row vector
+        Eigen::MatrixXi e = RandomGenerator::generateErrorMatrix(m.size(), 1, -modulus/4, modulus/4);
+        Eigen::VectorXi b = a.block(0, 1, m.size(), s.size()) * s + 2 * e + m;
+        b = ZqElement::restrict(b, modulus);
+        a.col(0) = b;
+        return a;
+    }
+
+
+
+    static Eigen::MatrixXi encrypt(const Eigen::VectorXi& s, int modulus, int value)
+    {
+        Eigen::VectorXi m(1);
+        m(0) = value;
+        return encrypt(s, modulus, m);
     }
 
 
@@ -230,12 +238,12 @@ public:
     }
 
 
-    static bool decrypt(const Eigen::VectorXi& s, int modulus, const Eigen::MatrixXi& cyphertext)
+    static Eigen::VectorXi decrypt(const Eigen::VectorXi& s, int modulus, const Eigen::MatrixXi& cyphertext)
     {
-        int result = (cyphertext.block(0, 0, cyphertext.rows(), 1) 
-                            - cyphertext.block(0, 1, cyphertext.rows(), s.size()) * s)(0, 0);
+        Eigen::VectorXi result = (cyphertext.block(0, 0, cyphertext.rows(), 1) 
+                            - cyphertext.block(0, 1, cyphertext.rows(), s.size()) * s);
         result = ZqElement::restrict(result , modulus);
-        result = result % 2;
+        result = result.unaryExpr([](int elem){return abs(elem % 2);});
         return result;
     }
 

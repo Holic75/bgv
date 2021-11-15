@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <assert.h>
+#include <Eigen/Dense>
 
 namespace bgv
 {
@@ -46,6 +47,13 @@ public:
             z += modulus;
         }
         return z;
+    }
+
+
+    template<int R, int C>
+    static Eigen::Matrix<int, R, C> restrict(const Eigen::Matrix<int, R, C>& z, int modulus)
+    {
+        return z.unaryExpr([modulus](int elem){return restrict(elem, modulus);});
     }
 };
 }

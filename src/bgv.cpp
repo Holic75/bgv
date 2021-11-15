@@ -22,8 +22,8 @@ int main (int argc, char *argv[])
 
     int q_test = 5;
 
-    auto c1_test = bgv::EncryptionEngine::encrypt(s1_test, q_test, true);
-    auto c2_test = bgv::EncryptionEngine::encrypt(s1_test, q_test, false);
+    auto c1_test = bgv::EncryptionEngine::encrypt(s1_test, q_test, 1);
+    auto c2_test = bgv::EncryptionEngine::encrypt(s1_test, q_test, 0);
     auto info_test = bgv::EncryptionEngine::encryptKeyPowersOf2(s2_test, q_test, s1_test);
     auto c_mult = bgv::EncryptionEngine::multiplyCyphertexts(c1_test, c1_test, info_test, q_test);
     std::cout << c1_test << "\n";
@@ -49,8 +49,8 @@ int main (int argc, char *argv[])
 
     for (int i = 0; i < 10 ;i ++)
     {
-        auto c1 = bgv::EncryptionEngine::encrypt(s, q, true);
-        auto c2 = bgv::EncryptionEngine::encrypt(s, q, false);
+        auto c1 = bgv::EncryptionEngine::encrypt(s, q, 1);
+        auto c2 = bgv::EncryptionEngine::encrypt(s, q, 0);
         auto c_sum = bgv::EncryptionEngine::addCyphertexts(c1, c2);
         auto m1 = bgv::EncryptionEngine::decrypt(s, q, c1);
         auto m2 = bgv::EncryptionEngine::decrypt(s, q, c2);
@@ -63,25 +63,25 @@ int main (int argc, char *argv[])
         std::cout << m2 << "\n";
         std::cout << m_sum << "\n";
         std::cout << m_prod << "\n";
-        assert(m_prod == 1);
+        assert(m_prod(0, 0) == 1);
     }
 
 
     for (int i = 0; i < 10; i++)
     {
-        auto c = bgv::EncryptionEngine::encrypt(s, q, true);
+        auto c = bgv::EncryptionEngine::encrypt(s, q, 1);
         std::cout << c << "\n";
         auto m = bgv::EncryptionEngine::decrypt(s, q, c);
         std::cout << m << "\n";
-        assert(m == 1);
+        assert(m(0 , 0) == 1);
     }
     for (int i = 0; i < 10; i++)
     {
-        auto c = bgv::EncryptionEngine::encrypt(s, q, false);
+        auto c = bgv::EncryptionEngine::encrypt(s, q, 0);
         std::cout << c << "\n";
         auto m = bgv::EncryptionEngine::decrypt(s, q, c);
         std::cout << m << "\n";
-        assert(m == 0);
+        assert(m(0, 0) == 0);
     }
     return 0;
 } 
